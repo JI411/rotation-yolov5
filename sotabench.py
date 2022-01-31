@@ -96,7 +96,7 @@ def test(data,
     loss = torch.zeros(3, device=device)
     jdict, stats, ap, ap_class = [], [], [], []
     evaluator = COCOEvaluator(root=DATA_ROOT, model_name=opt.weights.replace('.pt', ''))
-    for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
+    for img, targets, paths, shapes in tqdm(dataloader, desc=s):
         img = img.to(device, non_blocking=True)
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -196,13 +196,6 @@ def test(data,
             #
             # # Append statistics (correct, conf, pcls, tcls)
             # stats.append((correct.cpu(), pred[:, 4].cpu(), pred[:, 5].cpu(), tcls))
-
-        # # Plot images
-        # if batch_i < 1:
-        #     f = Path(save_dir) / ('test_batch%g_gt.jpg' % batch_i)  # filename
-        #     plot_images(img, targets, paths, str(f), names)  # ground truth
-        #     f = Path(save_dir) / ('test_batch%g_pred.jpg' % batch_i)
-        #     plot_images(img, output_to_target(output, width, height), paths, str(f), names)  # predictions
 
     evaluator.add(jdict)
     evaluator.save()
