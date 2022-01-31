@@ -1,0 +1,4 @@
+train: ./data/few_data/images
+val: ./data/few_data/images
+nc: 1
+names: ['coal']
