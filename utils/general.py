@@ -126,14 +126,12 @@ def check_anchor_order(m):
 
 
 def check_file(file):
-    # Search for file if not found
     if os.path.isfile(file) or file == '':
         return file
-    else:
-        files = glob.glob('./**/' + file, recursive=True)  # find file
-        assert len(files), 'File Not Found: %s' % file  # assert file was found
-        assert len(files) == 1, "Multiple files match '%s', specify exact path: %s" % (file, files)  # assert unique
-        return files[0]  # return file
+    files = glob.glob('./**/' + file, recursive=True)  # find file
+    assert len(files), 'File Not Found: %s' % file  # assert file was found
+    assert len(files) == 1, "Multiple files match '%s', specify exact path: %s" % (file, files)  # assert unique
+    return files[0]  # return file
 
 
 def check_dataset(dict):
@@ -143,17 +141,16 @@ def check_dataset(dict):
         val = [os.path.abspath(x) for x in (val if isinstance(val, list) else [val])]  # val path
         if not all(os.path.exists(x) for x in val):
             print('\nWARNING: Dataset not found, nonexistant paths: %s' % [*val])
-            if s and len(s):  # download script
-                print('Downloading %s ...' % s)
-                if s.startswith('http') and s.endswith('.zip'):  # URL
-                    f = Path(s).name  # filename
-                    torch.hub.download_url_to_file(s, f)
-                    r = os.system('unzip -q %s -d ../ && rm %s' % (f, f))  # unzip
-                else:  # bash script
-                    r = os.system(s)
-                print('Dataset autodownload %s\n' % ('success' if r == 0 else 'failure'))  # analyze return value
-            else:
+            if not s or not len(s):
                 raise Exception('Dataset not found.')
+            print('Downloading %s ...' % s)
+            if s.startswith('http') and s.endswith('.zip'):  # URL
+                f = Path(s).name  # filename
+                torch.hub.download_url_to_file(s, f)
+                r = os.system('unzip -q %s -d ../ && rm %s' % (f, f))  # unzip
+            else:  # bash script
+                r = os.system(s)
+            print('Dataset autodownload %s\n' % ('success' if r == 0 else 'failure'))  # analyze return value
 
 
 def make_divisible(x, divisor):
@@ -184,21 +181,93 @@ def labels_to_image_weights(labels, nc=80, class_weights=np.ones(80)):
     # Produces image weights based on class mAPs
     n = len(labels)
     class_counts = np.array([np.bincount(labels[i][:, 0].astype(np.int), minlength=nc) for i in range(n)])
-    image_weights = (class_weights.reshape(1, nc) * class_counts).sum(1)
     # index = random.choices(range(n), weights=image_weights, k=1)  # weight image sample
-    return image_weights
+    return (class_weights.reshape(1, nc) * class_counts).sum(1)
 
 
 def coco80_to_coco91_class():  # converts 80-index (val2014) to 91-index (paper)
-    # https://tech.amikelive.com/node-718/what-object-categories-labels-are-in-coco-dataset/
-    # a = np.loadtxt('data/coco.names', dtype='str', delimiter='\n')
-    # b = np.loadtxt('data/coco_paper.names', dtype='str', delimiter='\n')
-    # x1 = [list(a[i] == b).index(True) + 1 for i in range(80)]  # darknet to coco
-    # x2 = [list(b[i] == a).index(True) if any(b[i] == a) else None for i in range(91)]  # coco to darknet
-    x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 31, 32, 33, 34,
-         35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
-         64, 65, 67, 70, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 84, 85, 86, 87, 88, 89, 90]
-    return x
+    return [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        27,
+        28,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        67,
+        70,
+        72,
+        73,
+        74,
+        75,
+        76,
+        77,
+        78,
+        79,
+        80,
+        81,
+        82,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+    ]
 
 
 def xyxy2xywh(x):
@@ -278,23 +347,22 @@ def ap_per_class(tp, conf, pred_cls, target_cls, plot=False, fname='precision-re
 
         if n_p == 0 or n_gt == 0:
             continue
-        else:
-            # Accumulate FPs and TPs
-            fpc = (1 - tp[i]).cumsum(0)
-            tpc = tp[i].cumsum(0)
+        # Accumulate FPs and TPs
+        fpc = (1 - tp[i]).cumsum(0)
+        tpc = tp[i].cumsum(0)
 
-            # Recall
-            recall = tpc / (n_gt + 1e-16)  # recall curve
-            r[ci] = np.interp(-pr_score, -conf[i], recall[:, 0])  # r at pr_score, negative x, xp because xp decreases
+        # Recall
+        recall = tpc / (n_gt + 1e-16)  # recall curve
+        r[ci] = np.interp(-pr_score, -conf[i], recall[:, 0])  # r at pr_score, negative x, xp because xp decreases
 
-            # Precision
-            precision = tpc / (tpc + fpc)  # precision curve
-            p[ci] = np.interp(-pr_score, -conf[i], precision[:, 0])  # p at pr_score
+        # Precision
+        precision = tpc / (tpc + fpc)  # precision curve
+        p[ci] = np.interp(-pr_score, -conf[i], precision[:, 0])  # p at pr_score
 
-            # AP from recall-precision curve
-            py.append(np.interp(px, recall[:, 0], precision[:, 0]))  # precision at mAP@0.5
-            for j in range(tp.shape[1]):
-                ap[ci, j] = compute_ap(recall[:, j], precision[:, j])
+        # AP from recall-precision curve
+        py.append(np.interp(px, recall[:, 0], precision[:, 0]))  # precision at mAP@0.5
+        for j in range(tp.shape[1]):
+            ap[ci, j] = compute_ap(recall[:, j], precision[:, j])
 
     # Compute F1 score (harmonic mean of precision and recall)
     f1 = 2 * p * r / (p + r + 1e-16)
@@ -336,12 +404,10 @@ def compute_ap(recall, precision):
     method = 'interp'  # methods: 'continuous', 'interp'
     if method == 'interp':
         x = np.linspace(0, 1, 101)  # 101-point interp (COCO)
-        ap = np.trapz(np.interp(x, mrec, mpre), x)  # integrate
+        return np.trapz(np.interp(x, mrec, mpre), x)
     else:  # 'continuous'
         i = np.where(mrec[1:] != mrec[:-1])[0]  # points where x axis (recall) changes
-        ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])  # area under curve
-
-    return ap
+        return np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])
 
 
 def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False, eps=1e-9):
@@ -368,25 +434,23 @@ def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False, eps=
     union = w1 * h1 + w2 * h2 - inter + eps
 
     iou = inter / union
-    if GIoU or DIoU or CIoU:
-        cw = torch.max(b1_x2, b2_x2) - torch.min(b1_x1, b2_x1)  # convex (smallest enclosing box) width
-        ch = torch.max(b1_y2, b2_y2) - torch.min(b1_y1, b2_y1)  # convex height
-        if CIoU or DIoU:  # Distance or Complete IoU https://arxiv.org/abs/1911.08287v1
-            c2 = cw ** 2 + ch ** 2 + eps  # convex diagonal squared
-            rho2 = ((b2_x1 + b2_x2 - b1_x1 - b1_x2) ** 2 +
-                    (b2_y1 + b2_y2 - b1_y1 - b1_y2) ** 2) / 4  # center distance squared
-            if DIoU:
-                return iou - rho2 / c2  # DIoU
-            elif CIoU:  # https://github.com/Zzh-tju/DIoU-SSD-pytorch/blob/master/utils/box/box_utils.py#L47
-                v = (4 / math.pi ** 2) * torch.pow(torch.atan(w2 / h2) - torch.atan(w1 / h1), 2)
-                with torch.no_grad():
-                    alpha = v / ((1 + eps) - iou + v)
-                return iou - (rho2 / c2 + v * alpha)  # CIoU
-        else:  # GIoU https://arxiv.org/pdf/1902.09630.pdf
-            c_area = cw * ch + eps  # convex area
-            return iou - (c_area - union) / c_area  # GIoU
-    else:
+    if not GIoU and not DIoU and not CIoU:
         return iou  # IoU
+    cw = torch.max(b1_x2, b2_x2) - torch.min(b1_x1, b2_x1)  # convex (smallest enclosing box) width
+    ch = torch.max(b1_y2, b2_y2) - torch.min(b1_y1, b2_y1)  # convex height
+    if CIoU or DIoU:  # Distance or Complete IoU https://arxiv.org/abs/1911.08287v1
+        c2 = cw ** 2 + ch ** 2 + eps  # convex diagonal squared
+        rho2 = ((b2_x1 + b2_x2 - b1_x1 - b1_x2) ** 2 +
+                (b2_y1 + b2_y2 - b1_y1 - b1_y2) ** 2) / 4  # center distance squared
+        if DIoU:
+            return iou - rho2 / c2  # DIoU
+        v = (4 / math.pi ** 2) * torch.pow(torch.atan(w2 / h2) - torch.atan(w1 / h1), 2)
+        with torch.no_grad():
+            alpha = v / ((1 + eps) - iou + v)
+        return iou - (rho2 / c2 + v * alpha)  # CIoU
+    else:  # GIoU https://arxiv.org/pdf/1902.09630.pdf
+        c_area = cw * ch + eps  # convex area
+        return iou - (c_area - union) / c_area  # GIoU
 
 
 def box_iou(box1, box2):
@@ -476,7 +540,7 @@ class BCEBlurWithLogitsLoss(nn.Module):
 
 def gaussian_label(label, num_class, u=0, sig=4.0):
 
-    x = np.array(range(math.floor(-num_class / 2), math.ceil(num_class / 2), 1))
+    x = np.array(range(math.floor(-num_class / 2), math.ceil(num_class / 2)))
     y_sig = np.exp(-(x - u) ** 2 / (2 * sig ** 2))
     return np.concatenate([y_sig[math.ceil(num_class / 2) - int(label.item()):],
                            y_sig[:math.ceil(num_class / 2) - int(label.item())]], axis=0)

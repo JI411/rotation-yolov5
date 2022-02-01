@@ -46,7 +46,7 @@ def attempt_download(weights):
             print('Downloading %s to %s...' % (url, weights))
             r = os.system('curl -L %s -o %s' % (url, weights))  # torch.hub.download_url_to_file(url, weights)
         finally:
-            if not (os.path.exists(weights) and os.path.getsize(weights) > 1E6):  # check
+            if not os.path.exists(weights) or os.path.getsize(weights) <= 1e6:  # check
                 os.remove(weights) if os.path.exists(weights) else None  # remove partial downloads
                 print('ERROR: Download failure: %s' % msg)
             print('')
